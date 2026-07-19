@@ -413,3 +413,53 @@ input::placeholder {
     color: var(--text-primary);
     background-color: rgba(255, 255, 255, 0.05);
 }
+
+/* PWA Popup */
+.pwa-popup {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: var(--box-bg);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    padding: 16px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    width: calc(100% - 40px);
+    max-width: 400px;
+    animation: slideUp 0.3s ease-out forwards;
+}
+
+@keyframes slideUp {
+    from { transform: translate(-50%, 100%); opacity: 0; }
+    to { transform: translate(-50%, 0); opacity: 1; }
+}
+
+.pwa-popup-content {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.pwa-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+}
+
+.pwa-text {
+    flex: 1;
+}
+
+.pwa-text h3 {
+    font-size: 15px;
+    margin-bottom: 2px;
+}
+
+.pwa-text p {
+    font-size: 12px;
+    color: var(--text-secondary);
+}

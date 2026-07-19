@@ -282,3 +282,59 @@ function loadRecentChats() {
         });
     });
 }
+
+// ==========================================
+// PWA Install Logic
+// ==========================================
+let deferredPrompt;
+const pwaInstallPopup = document.getElementById('pwaInstallPopup');
+const pwaInstallBtn = document.getElementById('pwaInstallBtn');
+const pwaCloseBtn = document.getElementById('pwaCloseBtn');
+
+window.addEventListener('beforeinstallprompt', (e) => {
+    // Prevent the mini-infobar from appearing on mobile
+    e.preventDefault();
+    // Stash the event so it can be triggered later.
+    deferredPrompt = e;
+    // Show custom popup if they haven't dismissed it recently
+    if (!localStorage.getItem('pwa_dismissed')) {
+        setTimeout(() => {
+            pwaInstallPopup.style.display = 'block';
+        }, 2000); // Show 2 seconds after home page loads
+    }
+});
+
+pwaCloseBtn.addEventListener('click', () => {
+    pwaInstallPopup.style.display = 'none';
+    localStorage.setItem('pwa_dismissed', 'true');
+});
+
+pwaInstallBtn.addEventListener('click', async () => {
+    pwaInstallPopup.style.display = 'none';
+    if (deferredPrompt) {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        console.log(`User response to the install prompt: ${outcome}`);
+        deferredPrompt = null;
+    }
+});
+
+// Check if iOS (iOS doesn't support beforeinstallprompt)
+const isIos = () => {
+    const userAgent = window.navigator.userAgent.toLowerCase();
+    return /iphone|ipad|ipod/.test(userAgent);
+};
+
+// Check if already running as PWA
+const isInStandaloneMode = () => ('standalone' in window.navigator) && (window.navigator.standalone);
+
+if (isIos() && !isInStandaloneMode() && !localStorage.getItem('pwa_dismissed')) {
+    // Modify popup for iOS instructions
+    document.querySelector('.pwa-text h3').textContent = 'Install on iOS';
+    document.querySelector('.pwa-text p').innerHTML = 'Tap the <b>Share</b> icon below<br>then <b>Add to Home Screen</b>';
+    pwaInstallBtn.style.display = 'none'; // Can't click to install programmatically on iOS
+    
+    setTimeout(() => {
+        pwaInstallPopup.style.display = 'block';
+    }, 2000);
+}

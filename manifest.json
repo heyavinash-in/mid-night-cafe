@@ -1,0 +1,17 @@
+{
+  "name": "Midnight Café",
+  "short_name": "Midnight Café",
+  "description": "A secure, aesthetically pleasing chat application.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0b0f19",
+  "theme_color": "#0b0f19",
+  "icons": [
+    {
+      "src": "icon.jpg",
+      "sizes": "1024x1024",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    }
+  ]
+}
