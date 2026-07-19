@@ -38,16 +38,26 @@ avatarOptions.forEach(option => {
     });
 });
 
-const form = document.getElementById('onboardingForm');
+const errorDisplay = document.getElementById('errorDisplay');
 const usernameInput = document.getElementById('username');
 const saveBtn = document.getElementById('saveBtn');
 
-form.addEventListener('submit', async (e) => {
+saveBtn.addEventListener('click', async (e) => {
     e.preventDefault();
-    if (!currentUser) return;
+    if (!currentUser) {
+        errorDisplay.textContent = "Error: Not logged in.";
+        errorDisplay.style.display = "block";
+        return;
+    }
     
     const username = usernameInput.value.trim();
+    if (!username) {
+        errorDisplay.textContent = "Please enter a username.";
+        errorDisplay.style.display = "block";
+        return;
+    }
     
+    errorDisplay.style.display = "none";
     const originalText = saveBtn.textContent;
     saveBtn.textContent = 'Saving...';
     saveBtn.style.opacity = '0.8';
@@ -60,6 +70,10 @@ form.addEventListener('submit', async (e) => {
         });
         
         // Generate E2EE Keys
+        if (!window.crypto || !window.crypto.subtle) {
+            throw new Error("End-to-End Encryption requires a secure connection (HTTPS).");
+        }
+        
         const keyPair = await generateKeyPair();
         const publicKeyString = await exportKey(keyPair.publicKey);
         const privateKeyString = await exportKey(keyPair.privateKey);
@@ -86,7 +100,8 @@ form.addEventListener('submit', async (e) => {
         
     } catch (error) {
         console.error(error);
-        alert(`Error: ${error.message}`);
+        errorDisplay.textContent = `Error: ${error.message}`;
+        errorDisplay.style.display = "block";
         saveBtn.textContent = originalText;
         saveBtn.style.opacity = '1';
     }

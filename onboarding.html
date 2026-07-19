@@ -19,7 +19,7 @@
             <h2 style="font-size: 24px; margin-bottom: 8px;">Complete your profile</h2>
             <p class="subtitle" style="margin-bottom: 24px;">Choose an avatar and a unique username.</p>
             
-            <form id="onboardingForm">
+            <div id="onboardingForm">
                 <div class="avatar-selection" style="display: flex; justify-content: center; gap: 12px; margin-bottom: 24px; flex-wrap: wrap;">
                     <div class="avatar-option selected" data-avatar="🦊">🦊</div>
                     <div class="avatar-option" data-avatar="🐱">🐱</div>
@@ -33,8 +33,10 @@
                     <input type="text" id="username" placeholder="e.g. nightowl99" required autocomplete="off">
                 </div>
                 
-                <button type="submit" id="saveBtn" class="login-button">Join the Café</button>
-            </form>
+                <div id="errorDisplay" style="color: #ef4444; font-size: 14px; margin-bottom: 12px; display: none;"></div>
+                
+                <button type="button" id="saveBtn" class="login-button">Join the Café</button>
+            </div>
         </div>
     </div>
     
