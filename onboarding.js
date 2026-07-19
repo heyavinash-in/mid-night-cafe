@@ -81,7 +81,7 @@ saveBtn.addEventListener('click', async (e) => {
         saveBtn.style.backgroundColor = '#10b981';
         
         setTimeout(() => {
-            window.location.href = 'home.html';
+            window.location.replace('home.html');
         }, 800);
         
     } catch (error) {

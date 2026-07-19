@@ -54,13 +54,13 @@ async function handleLoginRedirect(user) {
     try {
         const userDoc = await getDoc(doc(db, "users", user.uid));
         if (userDoc.exists() && userDoc.data().username) {
-            window.location.href = 'home.html';
+            window.location.replace('home.html');
         } else {
-            window.location.href = 'onboarding.html';
+            window.location.replace('onboarding.html');
         }
     } catch (e) {
         console.error("Error checking user doc", e);
-        window.location.href = 'onboarding.html';
+        window.location.replace('onboarding.html');
     }
 }
 
