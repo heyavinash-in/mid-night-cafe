@@ -1,4 +1,4 @@
-const CACHE_NAME = 'midnight-cafe-v1';
+const CACHE_NAME = 'midnight-cafe-v2';
 const ASSETS = [
     './',
     './index.html',
@@ -11,7 +11,8 @@ const ASSETS = [
     './crypto.js',
     './icon.jpg',
     './chat_bg.jpg',
-    './manifest.json'
+    './manifest.json',
+    './script.js'
 ];
 
 self.addEventListener('install', event => {
@@ -19,6 +20,20 @@ self.addEventListener('install', event => {
         caches.open(CACHE_NAME).then(cache => {
             return cache.addAll(ASSETS);
         }).catch(err => console.error("SW Install Error", err))
+    );
+});
+
+self.addEventListener('activate', event => {
+    event.waitUntil(
+        caches.keys().then(cacheNames => {
+            return Promise.all(
+                cacheNames.map(cacheName => {
+                    if (cacheName !== CACHE_NAME) {
+                        return caches.delete(cacheName);
+                    }
+                })
+            );
+        })
     );
 });
 
