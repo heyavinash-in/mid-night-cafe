@@ -1,7 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import { getFirestore, collection, query, orderBy, addDoc, onSnapshot, serverTimestamp, doc, updateDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-import { importKey, deriveSharedKey, encryptMessage, decryptMessage } from './crypto.js';
 
 const firebaseConfig = {
   apiKey: "AIzaSyC17Q1pLbTSS7-eldYUUqf62IhjPZ0TvZA",
@@ -34,47 +33,15 @@ const chatForm = document.getElementById('chatForm');
 const messageInput = document.getElementById('messageInput');
 
 let currentUser = null;
-let sharedKey = null; // AES-GCM Key
 
 onAuthStateChanged(auth, async (user) => {
     if (!user) {
         window.location.href = 'index.html';
     } else {
         currentUser = user;
-        await setupE2EE();
         listenForMessages();
     }
 });
-
-async function setupE2EE() {
-    try {
-        const partnerUid = roomId.replace(currentUser.uid, '').replace('_', '');
-        
-        // 1. Get my local private key
-        const myPrivKeyStr = localStorage.getItem(`e2ee_private_${currentUser.uid}`);
-        if (!myPrivKeyStr) {
-            console.warn("No local private key found. E2EE disabled.");
-            return;
-        }
-        
-        // 2. Get partner's public key from Firestore
-        const partnerDoc = await getDoc(doc(db, "users", partnerUid));
-        if (!partnerDoc.exists() || !partnerDoc.data().publicKey) {
-            console.warn("Partner has no public key. E2EE disabled.");
-            return;
-        }
-        const partnerPubKeyStr = partnerDoc.data().publicKey;
-        
-        // 3. Import keys and derive shared secret
-        const myPrivKey = await importKey(myPrivKeyStr, 'private');
-        const partnerPubKey = await importKey(partnerPubKeyStr, 'public');
-        
-        sharedKey = await deriveSharedKey(myPrivKey, partnerPubKey);
-        console.log("E2EE Shared Secret established!");
-    } catch (e) {
-        console.error("E2EE Setup failed:", e);
-    }
-}
 
 function listenForMessages() {
     const q = query(
@@ -90,22 +57,21 @@ function listenForMessages() {
             
             let displayText = data.text;
             
-            // If message is E2EE encrypted and we have a shared key, decrypt it!
-            if (data.isEncrypted && sharedKey) {
-                displayText = await decryptMessage(sharedKey, data.ciphertext, data.iv);
-            } else if (data.isEncrypted && !sharedKey) {
-                displayText = "🔒 [Encrypted Message - Missing Keys]";
+            // Legacy support for older encrypted messages
+            if (data.isEncrypted) {
+                displayText = data.isImage ? "🔒 [Encrypted Image - E2EE Disabled]" : "🔒 [Encrypted Message - E2EE Disabled]";
             }
             
             const msgEl = document.createElement('div');
             msgEl.className = `message ${isSent ? 'sent' : 'received'}`;
+            
             if (data.isImage || displayText.startsWith('data:image/')) {
                 // It's an image!
                 msgEl.classList.add('image-message');
                 if (displayText.startsWith('data:image/')) {
                     msgEl.innerHTML = `<img src="${displayText}" class="chat-image" onclick="window.open(this.src)" />`;
                 } else {
-                    msgEl.textContent = "🔒 [Encrypted Image]";
+                    msgEl.textContent = displayText;
                 }
             } else {
                 msgEl.textContent = displayText;
@@ -171,29 +137,17 @@ async function sendMessage(text, isImage = false) {
     try {
         let msgData = {
             senderId: currentUser.uid,
-            timestamp: serverTimestamp()
+            timestamp: serverTimestamp(),
+            text: text,
+            isImage: isImage,
+            isEncrypted: false
         };
-        
-        if (sharedKey) {
-            // E2EE Encrypted Payload
-            const encrypted = await encryptMessage(sharedKey, text);
-            msgData.isEncrypted = true;
-            msgData.ciphertext = encrypted.ciphertext;
-            msgData.iv = encrypted.iv;
-            msgData.text = isImage ? "🔒 [Encrypted Image]" : "🔒 [Encrypted]";
-            msgData.isImage = isImage;
-        } else {
-            // Fallback plaintext if setup failed
-            msgData.isEncrypted = false;
-            msgData.text = text;
-            msgData.isImage = isImage;
-        }
         
         await addDoc(collection(db, "chatRooms", roomId, "messages"), msgData);
         
         // Update the room's last message for the recent chats list
         await updateDoc(doc(db, "chatRooms", roomId), {
-            lastMessage: isImage ? (sharedKey ? "🔒 Encrypted Image" : "📷 Sent an image") : (sharedKey ? "🔒 Encrypted Message" : text),
+            lastMessage: isImage ? "📷 Sent an image" : text,
             lastMessageTime: serverTimestamp()
         });
     } catch (error) {

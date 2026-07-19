@@ -1,18 +1,18 @@
-const CACHE_NAME = 'midnight-cafe-v4';
+const CACHE_NAME = 'midnight-cafe-v5';
 const ASSETS = [
     './',
     './index.html',
+    './onboarding.html',
     './home.html',
     './chat.html',
     './style.css',
+    './script.js',
     './onboarding.js',
     './home.js',
     './chat.js',
-    './crypto.js',
     './icon.jpg',
     './chat_bg.jpg',
-    './manifest.json',
-    './script.js'
+    './manifest.json'
 ];
 
 self.addEventListener('install', event => {

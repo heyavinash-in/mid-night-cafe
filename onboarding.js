@@ -1,7 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getAuth, updateProfile, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-import { generateKeyPair, exportKey } from './crypto.js';
 
 const firebaseConfig = {
   apiKey: "AIzaSyC17Q1pLbTSS7-eldYUUqf62IhjPZ0TvZA",
@@ -69,26 +68,13 @@ saveBtn.addEventListener('click', async (e) => {
             photoURL: selectedAvatar
         });
         
-        // Generate E2EE Keys
-        if (!window.crypto || !window.crypto.subtle) {
-            throw new Error("End-to-End Encryption requires a secure connection (HTTPS).");
-        }
-        
-        const keyPair = await generateKeyPair();
-        const publicKeyString = await exportKey(keyPair.publicKey);
-        const privateKeyString = await exportKey(keyPair.privateKey);
-        
-        // Save private key locally securely (never leaves device)
-        localStorage.setItem(`e2ee_private_${currentUser.uid}`, privateKeyString);
-        
         // Save user to Firestore to make them globally searchable
         await setDoc(doc(db, "users", currentUser.uid), {
             uid: currentUser.uid,
             username: username,
             avatar: selectedAvatar,
             status: 'Online',
-            searchUsername: username.toLowerCase(), // For case-insensitive search
-            publicKey: publicKeyString // E2EE Public Key
+            searchUsername: username.toLowerCase() // For case-insensitive search
         });
         
         saveBtn.textContent = 'Welcome to the Café!';

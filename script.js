@@ -1,6 +1,8 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
+import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
 const firebaseConfig = {
   apiKey: "AIzaSyC17Q1pLbTSS7-eldYUUqf62IhjPZ0TvZA",
   authDomain: "midnight-cafe-266dd.firebaseapp.com",
@@ -13,6 +15,7 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
+const db = getFirestore(app);
 
 // State
 let isSignUpMode = false;
@@ -47,6 +50,20 @@ toggleModeBtn.addEventListener('click', (e) => {
     }
 });
 
+async function handleLoginRedirect(user) {
+    try {
+        const userDoc = await getDoc(doc(db, "users", user.uid));
+        if (userDoc.exists() && userDoc.data().username) {
+            window.location.href = 'home.html';
+        } else {
+            window.location.href = 'onboarding.html';
+        }
+    } catch (e) {
+        console.error("Error checking user doc", e);
+        window.location.href = 'onboarding.html';
+    }
+}
+
 form.addEventListener('submit', async function(e) {
     e.preventDefault();
     
@@ -58,21 +75,17 @@ form.addEventListener('submit', async function(e) {
     submitBtn.style.opacity = '0.8';
     
     try {
+        let userCredential;
         if (isSignUpMode) {
-            // Register new user
-            await createUserWithEmailAndPassword(auth, email, password);
+            userCredential = await createUserWithEmailAndPassword(auth, email, password);
             submitBtn.textContent = 'Account Created!';
         } else {
-            // Login existing user
-            await signInWithEmailAndPassword(auth, email, password);
+            userCredential = await signInWithEmailAndPassword(auth, email, password);
             submitBtn.textContent = 'Welcome back!';
         }
         
         submitBtn.style.backgroundColor = '#10b981'; // Success green
-        
-        setTimeout(() => {
-            window.location.href = 'onboarding.html';
-        }, 500);
+        await handleLoginRedirect(userCredential.user);
         
     } catch (error) {
         console.error(error);
@@ -99,14 +112,12 @@ googleSignInBtn.addEventListener('click', async (e) => {
     googleSignInBtn.style.opacity = '0.8';
     
     try {
-        await signInWithPopup(auth, googleProvider);
+        const result = await signInWithPopup(auth, googleProvider);
         googleSignInBtn.innerHTML = 'Success!';
         googleSignInBtn.style.backgroundColor = '#10b981';
         googleSignInBtn.style.color = 'white';
         
-        setTimeout(() => {
-            window.location.href = 'onboarding.html';
-        }, 500);
+        await handleLoginRedirect(result.user);
     } catch (error) {
         console.error(error);
         alert(`Google Sign-In Error: ${error.message}`);
