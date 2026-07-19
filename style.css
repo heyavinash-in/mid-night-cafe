@@ -212,3 +212,204 @@ input::placeholder {
 .footer-text a:hover {
     text-decoration: underline;
 }
+
+/* Incoming Request Items */
+.request-item {
+    background-color: var(--box-bg);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(99, 102, 241, 0.3);
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.request-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.request-avatar {
+    font-size: 32px;
+}
+.request-name {
+    font-weight: 600;
+}
+.accept-btn {
+    background-color: #10b981;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+.accept-btn:hover {
+    background-color: #059669;
+}
+
+/* Recent Chat Items */
+.recent-chat-item {
+    background-color: var(--box-bg);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.1s;
+    text-decoration: none;
+    color: var(--text-primary);
+}
+.recent-chat-item:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+.recent-chat-item:active {
+    transform: scale(0.98);
+}
+.recent-chat-avatar {
+    font-size: 32px;
+    background-color: #2A3942;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.recent-chat-details {
+    flex: 1;
+    overflow: hidden;
+}
+.recent-chat-name {
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+.recent-chat-msg {
+    font-size: 13px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.message.received {
+    align-self: flex-start;
+    background-color: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(8px);
+    color: var(--text-primary);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom-left-radius: 4px;
+}
+
+.message.image-message {
+    padding: 6px;
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.message.sent.image-message {
+    background: linear-gradient(135deg, var(--accent-color), var(--accent-hover));
+}
+
+.chat-image {
+    max-width: 100%;
+    border-radius: 14px;
+    display: block;
+    cursor: pointer;
+}
+
+/* Emoji Picker */
+.emoji-picker {
+    position: absolute;
+    bottom: 85px;
+    left: 20px;
+    background-color: var(--box-bg);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    padding: 0;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+    z-index: 100;
+    width: 320px;
+    max-width: calc(100% - 40px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+.emoji-tabs {
+    display: flex;
+    justify-content: space-around;
+    background-color: rgba(0,0,0,0.2);
+    padding: 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.emoji-tab {
+    background: none;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    padding: 6px 12px;
+    border-radius: 8px;
+    transition: background-color 0.2s, transform 0.1s;
+    filter: grayscale(100%);
+    opacity: 0.6;
+}
+.emoji-tab.active {
+    filter: grayscale(0%);
+    opacity: 1;
+    background-color: rgba(255,255,255,0.1);
+}
+.emoji-tab:hover {
+    background-color: rgba(255,255,255,0.05);
+}
+.emoji-scroll-area {
+    padding: 12px;
+    max-height: 220px;
+    overflow-y: auto;
+}
+.emoji-scroll-area::-webkit-scrollbar {
+    width: 6px;
+}
+.emoji-scroll-area::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+}
+.emoji-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.emoji-item {
+    font-size: 24px;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 8px;
+    transition: transform 0.1s, background-color 0.2s;
+    user-select: none;
+}
+.emoji-item:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    transform: scale(1.2);
+}
+.emoji-toggle-btn {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+    border-radius: 50%;
+    transition: color 0.2s, background-color 0.2s;
+}
+.emoji-toggle-btn:hover {
+    color: var(--text-primary);
+    background-color: rgba(255, 255, 255, 0.05);
+}

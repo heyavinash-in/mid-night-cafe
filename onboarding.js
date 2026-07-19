@@ -1,5 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getAuth, updateProfile, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { generateKeyPair, exportKey } from './crypto.js';
 
 const firebaseConfig = {
   apiKey: "AIzaSyC17Q1pLbTSS7-eldYUUqf62IhjPZ0TvZA",
@@ -12,6 +14,7 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
+const db = getFirestore(app);
 
 let selectedAvatar = '🦊';
 let currentUser = null;
@@ -21,7 +24,6 @@ onAuthStateChanged(auth, (user) => {
     if (user) {
         currentUser = user;
     } else {
-        // Not logged in, redirect to login
         window.location.href = 'index.html';
     }
 });
@@ -30,9 +32,7 @@ onAuthStateChanged(auth, (user) => {
 const avatarOptions = document.querySelectorAll('.avatar-option');
 avatarOptions.forEach(option => {
     option.addEventListener('click', () => {
-        // Remove selected class from all
         avatarOptions.forEach(opt => opt.classList.remove('selected'));
-        // Add to clicked
         option.classList.add('selected');
         selectedAvatar = option.getAttribute('data-avatar');
     });
@@ -53,18 +53,36 @@ form.addEventListener('submit', async (e) => {
     saveBtn.style.opacity = '0.8';
     
     try {
-        // Update user profile in Firebase
+        // Update user profile in Firebase Auth
         await updateProfile(currentUser, {
             displayName: username,
             photoURL: selectedAvatar
+        });
+        
+        // Generate E2EE Keys
+        const keyPair = await generateKeyPair();
+        const publicKeyString = await exportKey(keyPair.publicKey);
+        const privateKeyString = await exportKey(keyPair.privateKey);
+        
+        // Save private key locally securely (never leaves device)
+        localStorage.setItem(`e2ee_private_${currentUser.uid}`, privateKeyString);
+        
+        // Save user to Firestore to make them globally searchable
+        await setDoc(doc(db, "users", currentUser.uid), {
+            uid: currentUser.uid,
+            username: username,
+            avatar: selectedAvatar,
+            status: 'Online',
+            searchUsername: username.toLowerCase(), // For case-insensitive search
+            publicKey: publicKeyString // E2EE Public Key
         });
         
         saveBtn.textContent = 'Welcome to the Café!';
         saveBtn.style.backgroundColor = '#10b981';
         
         setTimeout(() => {
-            alert(`Profile saved! Username: ${username}, Avatar: ${selectedAvatar}\n\n(Normally, this would redirect you to the main chat room!)`);
-        }, 1000);
+            window.location.href = 'home.html';
+        }, 800);
         
     } catch (error) {
         console.error(error);
