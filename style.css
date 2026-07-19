@@ -152,6 +152,51 @@ input::placeholder {
     transform: scale(0.98);
 }
 
+.divider {
+    display: flex;
+    align-items: center;
+    margin: 24px 0;
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+
+.divider::before,
+.divider::after {
+    content: "";
+    flex: 1;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.divider span {
+    padding: 0 16px;
+}
+
+.google-button {
+    width: 100%;
+    padding: 12px;
+    background-color: white;
+    color: #111B21;
+    border: none;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    transition: background-color 0.2s, transform 0.1s;
+    font-family: inherit;
+}
+
+.google-button:hover {
+    background-color: #f1f5f9;
+}
+
+.google-button:active {
+    transform: scale(0.98);
+}
+
 .footer-text {
     margin-top: 32px;
     font-size: 14px;
