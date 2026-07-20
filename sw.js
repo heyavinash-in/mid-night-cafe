@@ -1,4 +1,4 @@
-const CACHE_NAME = 'midnight-cafe-v6';
+const CACHE_NAME = 'midnight-cafe-v7';
 const ASSETS = [
     './',
     './index.html',

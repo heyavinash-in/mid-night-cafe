@@ -162,8 +162,23 @@ chatForm.addEventListener('submit', async (e) => {
     if (text === '') return;
     
     messageInput.value = ''; 
+    
+    // Force the keyboard to stay open on mobile devices
+    messageInput.focus();
+    
+    // Prevent the button click from stealing focus on touch
+    setTimeout(() => {
+        messageInput.focus();
+    }, 10);
+    
     await sendMessage(text, false);
 });
+
+// Prevent the send button from taking focus away from the input field
+const sendBtn = document.querySelector('.send-btn');
+if (sendBtn) {
+    sendBtn.addEventListener('mousedown', (e) => e.preventDefault());
+}
 
 // Advanced Emoji Picker Logic
 const emojiToggleBtn = document.getElementById('emojiToggleBtn');
