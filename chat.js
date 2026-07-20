@@ -40,6 +40,7 @@ onAuthStateChanged(auth, async (user) => {
     } else {
         currentUser = user;
         listenForMessages();
+        listenForTypingStatus();
     }
 });
 
@@ -58,6 +59,22 @@ function getStatusIcon(status) {
         // default sent
         return `<span class="status-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"></path><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path></svg></span>`;
     }
+}
+
+function listenForTypingStatus() {
+    onSnapshot(doc(db, "chatRooms", roomId), (docSnap) => {
+        if (!docSnap.exists()) return;
+        const data = docSnap.data();
+        if (data.typing) {
+            const partnerTyping = Object.keys(data.typing).some(uid => uid !== currentUser.uid && data.typing[uid] === true);
+            const subtitleEl = document.getElementById('chatSubtitle');
+            if (partnerTyping) {
+                subtitleEl.innerHTML = `<span class="typing-indicator">typing<span class="typing-dots"><span>.</span><span>.</span><span>.</span></span></span>`;
+            } else {
+                subtitleEl.innerHTML = `<span style="color: #10b981;">Online</span>`;
+            }
+        }
+    });
 }
 
 function listenForMessages() {
@@ -222,10 +239,31 @@ imageInput.addEventListener('change', async (e) => {
     reader.readAsDataURL(file);
 });
 
+let typingTimeout = null;
+messageInput.addEventListener('input', () => {
+    if (!currentUser) return;
+    
+    updateDoc(doc(db, "chatRooms", roomId), {
+        [`typing.${currentUser.uid}`]: true
+    }).catch(console.error);
+    
+    clearTimeout(typingTimeout);
+    typingTimeout = setTimeout(() => {
+        updateDoc(doc(db, "chatRooms", roomId), {
+            [`typing.${currentUser.uid}`]: false
+        }).catch(console.error);
+    }, 2000);
+});
+
 async function sendMessage(text, isImage = false) {
     if (!currentUser) return;
     
     try {
+        clearTimeout(typingTimeout);
+        await updateDoc(doc(db, "chatRooms", roomId), {
+            [`typing.${currentUser.uid}`]: false
+        }).catch(() => {}); // Ignore if room doesn't exist yet
+        
         let msgData = {
             senderId: currentUser.uid,
             timestamp: serverTimestamp(),
