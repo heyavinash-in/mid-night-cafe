@@ -66,95 +66,114 @@ function listenForMessages() {
         orderBy("timestamp", "asc")
     );
     
-    onSnapshot(q, async (snapshot) => {
-        messagesList.innerHTML = '';
-        for (const docSnap of snapshot.docs) {
-            const data = docSnap.data();
+    let isInitialLoad = true;
+    
+    onSnapshot(q, (snapshot) => {
+        let hasNewMessages = false;
+        
+        snapshot.docChanges().forEach((change) => {
+            const data = change.doc.data();
+            const docId = change.doc.id;
             const isSent = data.senderId === currentUser.uid;
             
-            // Mark incoming messages as seen
-            if (!isSent && data.status !== 'seen') {
-                updateDoc(docSnap.ref, { status: 'seen' }).catch(console.error);
-            }
-            
-            let displayText = data.text;
-            
-            // Legacy support for older encrypted messages
-            if (data.isEncrypted) {
-                displayText = data.isImage ? "🔒 [Encrypted Image - E2EE Disabled]" : "🔒 [Encrypted Message - E2EE Disabled]";
-            }
-            
-            const msgEl = document.createElement('div');
-            msgEl.className = `message ${isSent ? 'sent' : 'received'}`;
-            
-            // Create content wrapper
-            const contentEl = document.createElement('div');
-            contentEl.className = 'message-content';
-            
-            if (data.isImage || displayText.startsWith('data:image/')) {
-                msgEl.classList.add('image-message');
-                if (displayText.startsWith('data:image/')) {
-                    contentEl.innerHTML = `<img src="${displayText}" class="chat-image" onclick="window.open(this.src)" />`;
-                } else {
-                    contentEl.textContent = displayText;
+            if (change.type === "added") {
+                // Mark incoming messages as seen
+                if (!isSent && data.status !== 'seen') {
+                    updateDoc(change.doc.ref, { status: 'seen' }).catch(console.error);
                 }
-            } else {
-                contentEl.textContent = displayText;
-            }
-            msgEl.appendChild(contentEl);
-            
-            // Create footer wrapper (time, edited, status)
-            const footerEl = document.createElement('div');
-            footerEl.className = 'message-footer';
-            
-            if (data.isEdited) {
-                const editedEl = document.createElement('span');
-                editedEl.className = 'message-edited';
-                editedEl.textContent = '(edited)';
-                footerEl.appendChild(editedEl);
+                
+                const msgEl = createMessageElement(docId, data, isSent, change.doc.ref);
+                messagesList.appendChild(msgEl);
+                hasNewMessages = true;
             }
             
-            const timeEl = document.createElement('span');
-            timeEl.textContent = formatTime(data.timestamp);
-            footerEl.appendChild(timeEl);
-            
-            // Add status icon only for sent messages
-            if (isSent) {
-                // If it doesn't have a status, assume 'sent'
-                const statusHtml = getStatusIcon(data.status || 'sent');
-                footerEl.insertAdjacentHTML('beforeend', statusHtml);
+            if (change.type === "modified") {
+                const existingMsg = document.getElementById(`msg-${docId}`);
+                if (existingMsg) {
+                    const newMsgEl = createMessageElement(docId, data, isSent, change.doc.ref);
+                    messagesList.replaceChild(newMsgEl, existingMsg);
+                }
             }
             
-            msgEl.appendChild(footerEl);
-            
-            // Edit Message Logic (Double-click/Tap on sent messages)
-            if (isSent && !data.isImage && !data.isEncrypted) {
-                msgEl.addEventListener('dblclick', async () => {
-                    const newText = prompt("Edit your message:", data.text);
-                    if (newText !== null && newText.trim() !== '' && newText.trim() !== data.text) {
-                        try {
-                            await updateDoc(docSnap.ref, {
-                                text: newText.trim(),
-                                isEdited: true
-                            });
-                            // Also update the last message snippet in the room if this is the newest message
-                            // (Simplified: we just update it anyway)
-                            await updateDoc(doc(db, "chatRooms", roomId), {
-                                lastMessage: newText.trim()
-                            });
-                        } catch (err) {
-                            console.error("Failed to edit message:", err);
-                        }
-                    }
-                });
+            if (change.type === "removed") {
+                const existingMsg = document.getElementById(`msg-${docId}`);
+                if (existingMsg) existingMsg.remove();
             }
-            
-            messagesList.appendChild(msgEl);
-        }
+        });
         
-        // Auto scroll to bottom
-        messagesList.scrollTop = messagesList.scrollHeight;
+        if (hasNewMessages || isInitialLoad) {
+            messagesList.scrollTop = messagesList.scrollHeight;
+            isInitialLoad = false;
+        }
     });
+}
+
+function createMessageElement(docId, data, isSent, docRef) {
+    let displayText = data.text;
+    if (data.isEncrypted) {
+        displayText = data.isImage ? "🔒 [Encrypted Image - E2EE Disabled]" : "🔒 [Encrypted Message - E2EE Disabled]";
+    }
+    
+    const msgEl = document.createElement('div');
+    msgEl.id = `msg-${docId}`;
+    msgEl.className = `message ${isSent ? 'sent' : 'received'}`;
+    
+    const contentEl = document.createElement('div');
+    contentEl.className = 'message-content';
+    
+    if (data.isImage || displayText.startsWith('data:image/')) {
+        msgEl.classList.add('image-message');
+        if (displayText.startsWith('data:image/')) {
+            contentEl.innerHTML = `<img src="${displayText}" class="chat-image" onclick="window.open(this.src)" />`;
+        } else {
+            contentEl.textContent = displayText;
+        }
+    } else {
+        contentEl.textContent = displayText;
+    }
+    msgEl.appendChild(contentEl);
+    
+    const footerEl = document.createElement('div');
+    footerEl.className = 'message-footer';
+    
+    if (data.isEdited) {
+        const editedEl = document.createElement('span');
+        editedEl.className = 'message-edited';
+        editedEl.textContent = '(edited)';
+        footerEl.appendChild(editedEl);
+    }
+    
+    const timeEl = document.createElement('span');
+    timeEl.textContent = formatTime(data.timestamp);
+    footerEl.appendChild(timeEl);
+    
+    if (isSent) {
+        const statusHtml = getStatusIcon(data.status || 'sent');
+        footerEl.insertAdjacentHTML('beforeend', statusHtml);
+    }
+    
+    msgEl.appendChild(footerEl);
+    
+    if (isSent && !data.isImage && !data.isEncrypted) {
+        msgEl.addEventListener('dblclick', async () => {
+            const newText = prompt("Edit your message:", data.text);
+            if (newText !== null && newText.trim() !== '' && newText.trim() !== data.text) {
+                try {
+                    await updateDoc(docRef, {
+                        text: newText.trim(),
+                        isEdited: true
+                    });
+                    await updateDoc(doc(db, "chatRooms", roomId), {
+                        lastMessage: newText.trim()
+                    });
+                } catch (err) {
+                    console.error("Failed to edit message:", err);
+                }
+            }
+        });
+    }
+    
+    return msgEl;
 }
 
 // --- Image Compression & Sending ---
