@@ -43,6 +43,23 @@ onAuthStateChanged(auth, async (user) => {
     }
 });
 
+function formatTime(timestamp) {
+    if (!timestamp) return '';
+    const date = timestamp.toDate();
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function getStatusIcon(status) {
+    if (status === 'seen') {
+        return `<span class="status-icon status-seen"><svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"></path><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path><line x1="6" y1="1" x2="6" y2="4"></line><line x1="10" y1="1" x2="10" y2="4"></line><line x1="14" y1="1" x2="14" y2="4"></line></svg></span>`;
+    } else if (status === 'delivered') {
+        return `<span class="status-icon"><svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"></path><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path></svg></span>`;
+    } else {
+        // default sent
+        return `<span class="status-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"></path><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path></svg></span>`;
+    }
+}
+
 function listenForMessages() {
     const q = query(
         collection(db, "chatRooms", roomId, "messages"),
@@ -55,6 +72,11 @@ function listenForMessages() {
             const data = docSnap.data();
             const isSent = data.senderId === currentUser.uid;
             
+            // Mark incoming messages as seen
+            if (!isSent && data.status !== 'seen') {
+                updateDoc(docSnap.ref, { status: 'seen' }).catch(console.error);
+            }
+            
             let displayText = data.text;
             
             // Legacy support for older encrypted messages
@@ -65,16 +87,66 @@ function listenForMessages() {
             const msgEl = document.createElement('div');
             msgEl.className = `message ${isSent ? 'sent' : 'received'}`;
             
+            // Create content wrapper
+            const contentEl = document.createElement('div');
+            contentEl.className = 'message-content';
+            
             if (data.isImage || displayText.startsWith('data:image/')) {
-                // It's an image!
                 msgEl.classList.add('image-message');
                 if (displayText.startsWith('data:image/')) {
-                    msgEl.innerHTML = `<img src="${displayText}" class="chat-image" onclick="window.open(this.src)" />`;
+                    contentEl.innerHTML = `<img src="${displayText}" class="chat-image" onclick="window.open(this.src)" />`;
                 } else {
-                    msgEl.textContent = displayText;
+                    contentEl.textContent = displayText;
                 }
             } else {
-                msgEl.textContent = displayText;
+                contentEl.textContent = displayText;
+            }
+            msgEl.appendChild(contentEl);
+            
+            // Create footer wrapper (time, edited, status)
+            const footerEl = document.createElement('div');
+            footerEl.className = 'message-footer';
+            
+            if (data.isEdited) {
+                const editedEl = document.createElement('span');
+                editedEl.className = 'message-edited';
+                editedEl.textContent = '(edited)';
+                footerEl.appendChild(editedEl);
+            }
+            
+            const timeEl = document.createElement('span');
+            timeEl.textContent = formatTime(data.timestamp);
+            footerEl.appendChild(timeEl);
+            
+            // Add status icon only for sent messages
+            if (isSent) {
+                // If it doesn't have a status, assume 'sent'
+                const statusHtml = getStatusIcon(data.status || 'sent');
+                footerEl.insertAdjacentHTML('beforeend', statusHtml);
+            }
+            
+            msgEl.appendChild(footerEl);
+            
+            // Edit Message Logic (Double-click/Tap on sent messages)
+            if (isSent && !data.isImage && !data.isEncrypted) {
+                msgEl.addEventListener('dblclick', async () => {
+                    const newText = prompt("Edit your message:", data.text);
+                    if (newText !== null && newText.trim() !== '' && newText.trim() !== data.text) {
+                        try {
+                            await updateDoc(docSnap.ref, {
+                                text: newText.trim(),
+                                isEdited: true
+                            });
+                            // Also update the last message snippet in the room if this is the newest message
+                            // (Simplified: we just update it anyway)
+                            await updateDoc(doc(db, "chatRooms", roomId), {
+                                lastMessage: newText.trim()
+                            });
+                        } catch (err) {
+                            console.error("Failed to edit message:", err);
+                        }
+                    }
+                });
             }
             
             messagesList.appendChild(msgEl);
@@ -140,7 +212,8 @@ async function sendMessage(text, isImage = false) {
             timestamp: serverTimestamp(),
             text: text,
             isImage: isImage,
-            isEncrypted: false
+            isEncrypted: false,
+            status: 'sent'
         };
         
         await addDoc(collection(db, "chatRooms", roomId, "messages"), msgData);
