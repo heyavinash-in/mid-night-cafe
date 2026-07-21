@@ -20,6 +20,12 @@ const db = getFirestore(app);
 onAuthStateChanged(auth, async (user) => {
     if (user) {
         await handleLoginRedirect(user);
+    } else {
+        const loader = document.getElementById('initialLoader');
+        if (loader) loader.style.opacity = '0';
+        setTimeout(() => {
+            if (loader) loader.style.display = 'none';
+        }, 300);
     }
 });
 

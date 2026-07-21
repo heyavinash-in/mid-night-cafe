@@ -96,7 +96,10 @@ function listenForMessages() {
             if (change.type === "added") {
                 // Mark incoming messages as seen
                 if (!isSent && data.status !== 'seen') {
-                    updateDoc(change.doc.ref, { status: 'seen' }).catch(console.error);
+                    // Spread updates to prevent freezing during initial load
+                    setTimeout(() => {
+                        updateDoc(change.doc.ref, { status: 'seen' }).catch(console.error);
+                    }, isInitialLoad ? 1000 + Math.random() * 2000 : 0);
                 }
                 
                 const msgEl = createMessageElement(docId, data, isSent, change.doc.ref);
@@ -286,29 +289,42 @@ async function sendMessage(text, isImage = false) {
     }
 }
 
-chatForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
+const submitBtn = document.getElementById('submitBtn');
+
+async function handleMessageSubmit() {
     const text = messageInput.value.trim();
     if (text === '') return;
     
     messageInput.value = ''; 
+    messageInput.style.height = '24px'; // Reset textarea height
     
     // Force the keyboard to stay open on mobile devices
     messageInput.focus();
     
-    // Prevent the button click from stealing focus on touch
     setTimeout(() => {
         messageInput.focus();
     }, 10);
     
     await sendMessage(text, false);
+}
+
+if (submitBtn) {
+    submitBtn.addEventListener('click', handleMessageSubmit);
+    submitBtn.addEventListener('mousedown', (e) => e.preventDefault());
+}
+
+messageInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault(); // Prevent default newline
+        handleMessageSubmit();
+    }
 });
 
-// Prevent the send button from taking focus away from the input field
-const sendBtn = document.querySelector('.send-btn');
-if (sendBtn) {
-    sendBtn.addEventListener('mousedown', (e) => e.preventDefault());
-}
+// Auto-resize textarea
+messageInput.addEventListener('input', function() {
+    this.style.height = '24px';
+    this.style.height = (this.scrollHeight) + 'px';
+});
 
 // Advanced Emoji Picker Logic
 const emojiToggleBtn = document.getElementById('emojiToggleBtn');
