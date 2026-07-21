@@ -272,6 +272,12 @@
                 <div class="chat-title" id="chatTitle">Chat Room</div>
                 <div class="chat-subtitle" id="chatSubtitle"><span style="color: #10b981;">Online</span></div>
             </div>
+            <button id="startCallBtn" style="background: none; border: none; color: var(--accent-color); cursor: pointer; padding: 8px; transition: transform 0.2s;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polygon points="23 7 16 12 23 17 23 7"></polygon>
+                    <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+                </svg>
+            </button>
         </div>
         
         <div class="chat-messages" id="messagesList">
@@ -309,6 +315,14 @@
                     <line x1="15" y1="9" x2="15.01" y2="9"></line>
                 </svg>
             </button>
+            <button type="button" id="recordVoiceBtn" class="emoji-toggle-btn" style="color: #10b981; margin-right: 4px;">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                    <line x1="12" y1="19" x2="12" y2="23"></line>
+                    <line x1="8" y1="23" x2="16" y2="23"></line>
+                </svg>
+            </button>
             <textarea id="messageInput" class="chat-input" placeholder="Type a message..." style="resize: none; height: 24px; min-height: 24px; max-height: 120px; overflow-y: auto; padding-top: 14px; padding-bottom: 14px;" rows="1"></textarea>
             <button type="button" id="submitBtn" class="send-btn">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-left: -2px;">
@@ -317,9 +331,37 @@
                 </svg>
             </button>
         </div>
+        
+        <!-- Video Call Overlay -->
+        <div id="videoCallOverlay" style="display: none; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: #0b0f19; z-index: 1000; flex-direction: column;">
+            <div style="padding: 16px; display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.5); position: absolute; top: 0; left: 0; right: 0; z-index: 1001;">
+                <span id="callStatusText" style="color: white; font-weight: 500;">Calling...</span>
+                <button id="endCallBtn" style="background: #ef4444; color: white; border: none; padding: 8px 16px; border-radius: 20px; font-weight: 600; cursor: pointer;">End</button>
+            </div>
+            
+            <video id="remoteVideo" autoplay playsinline style="width: 100%; height: 100%; object-fit: cover;"></video>
+            <video id="localVideo" autoplay playsinline muted style="width: 110px; height: 160px; position: absolute; bottom: 20px; right: 20px; border-radius: 12px; object-fit: cover; border: 2px solid rgba(255,255,255,0.2); box-shadow: 0 10px 20px rgba(0,0,0,0.5); background: #000;"></video>
+            
+            <!-- Incoming Call Modal -->
+            <div id="incomingCallModal" style="display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(30,41,59,0.95); padding: 24px; border-radius: 24px; text-align: center; border: 1px solid rgba(255,255,255,0.1); width: 80%; max-width: 300px; backdrop-filter: blur(10px); z-index: 1002; box-shadow: 0 20px 40px rgba(0,0,0,0.5);">
+                <div style="font-size: 48px; margin-bottom: 16px; animation: bounce 1s infinite;">📞</div>
+                <h3 style="margin: 0 0 8px 0; color: white;">Incoming Call</h3>
+                <p id="incomingCallerName" style="color: var(--text-secondary); margin-bottom: 24px;"></p>
+                <div style="display: flex; gap: 12px; justify-content: center;">
+                    <button id="rejectCallBtn" style="flex: 1; padding: 12px; border-radius: 12px; background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444; color: #ef4444; font-weight: 600; cursor: pointer;">Decline</button>
+                    <button id="answerCallBtn" style="flex: 1; padding: 12px; border-radius: 12px; background: #10b981; border: none; color: white; font-weight: 600; cursor: pointer;">Answer</button>
+                </div>
+            </div>
+            <style>
+                @keyframes bounce {
+                    0%, 100% { transform: translateY(0); }
+                    50% { transform: translateY(-10px); }
+                }
+            </style>
+        </div>
     </div>
     
-    <script type="module" src="chat.js?v=14"></script>
+    <script type="module" src="chat.js?v=17"></script>
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {

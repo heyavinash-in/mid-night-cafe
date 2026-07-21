@@ -41,6 +41,7 @@ onAuthStateChanged(auth, async (user) => {
         currentUser = user;
         listenForMessages();
         listenForTypingStatus();
+        listenForIncomingCalls();
     }
 });
 
@@ -148,6 +149,8 @@ function createMessageElement(docId, data, isSent, docRef) {
         } else {
             contentEl.textContent = displayText;
         }
+    } else if (data.isAudio || displayText.startsWith('data:audio/')) {
+        contentEl.innerHTML = `<audio controls src="${displayText}" style="max-width: 220px; height: 40px; outline: none; border-radius: 20px;"></audio>`;
     } else {
         contentEl.textContent = displayText;
     }
@@ -242,6 +245,59 @@ imageInput.addEventListener('change', async (e) => {
     reader.readAsDataURL(file);
 });
 
+// --- Voice Messaging ---
+const recordVoiceBtn = document.getElementById('recordVoiceBtn');
+let mediaRecorder;
+let audioChunks = [];
+let isRecording = false;
+
+recordVoiceBtn.addEventListener('click', async () => {
+    if (!isRecording) {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+            
+            mediaRecorder.ondataavailable = event => {
+                if (event.data.size > 0) {
+                    audioChunks.push(event.data);
+                }
+            };
+            
+            mediaRecorder.onstop = async () => {
+                const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                audioChunks = [];
+                
+                const reader = new FileReader();
+                reader.readAsDataURL(audioBlob);
+                reader.onloadend = async () => {
+                    const base64AudioMessage = reader.result;
+                    if (base64AudioMessage.length > 900000) { // ~900KB max to be safe for Firestore 1MB limit
+                        alert("Voice message is too long. Please record a shorter message (under 2 mins).");
+                        return;
+                    }
+                    await sendMessage(base64AudioMessage, false, true);
+                };
+            };
+            
+            audioChunks = [];
+            mediaRecorder.start();
+            isRecording = true;
+            recordVoiceBtn.style.color = '#ef4444'; // Red while recording
+            // Use pulse animation for visual feedback
+            recordVoiceBtn.style.animation = 'pulse 1s infinite alternate';
+        } catch (err) {
+            console.error("Microphone access denied:", err);
+            alert("Microphone access is required for voice messages.");
+        }
+    } else {
+        mediaRecorder.stop();
+        mediaRecorder.stream.getTracks().forEach(track => track.stop());
+        isRecording = false;
+        recordVoiceBtn.style.color = '#10b981'; // Back to green
+        recordVoiceBtn.style.animation = 'none';
+    }
+});
+
 let typingTimeout = null;
 messageInput.addEventListener('input', () => {
     if (!currentUser) return;
@@ -258,7 +314,7 @@ messageInput.addEventListener('input', () => {
     }, 2000);
 });
 
-async function sendMessage(text, isImage = false) {
+async function sendMessage(text, isImage = false, isAudio = false) {
     if (!currentUser) return;
     
     try {
@@ -272,15 +328,20 @@ async function sendMessage(text, isImage = false) {
             timestamp: serverTimestamp(),
             text: text,
             isImage: isImage,
+            isAudio: isAudio,
             isEncrypted: false,
             status: 'sent'
         };
         
         await addDoc(collection(db, "chatRooms", roomId, "messages"), msgData);
         
+        let lastMsgText = text;
+        if (isImage) lastMsgText = "📷 Sent an image";
+        if (isAudio) lastMsgText = "🎤 Sent a voice message";
+        
         // Update the room's last message for the recent chats list
         await updateDoc(doc(db, "chatRooms", roomId), {
-            lastMessage: isImage ? "📷 Sent an image" : text,
+            lastMessage: lastMsgText,
             lastMessageTime: serverTimestamp()
         });
     } catch (error) {
@@ -399,4 +460,245 @@ if (window.visualViewport) {
     };
     window.visualViewport.addEventListener('resize', adjustViewport);
     adjustViewport();
+}
+
+// ==========================================
+// Video Calling (WebRTC)
+// ==========================================
+const startCallBtn = document.getElementById('startCallBtn');
+const endCallBtn = document.getElementById('endCallBtn');
+const videoCallOverlay = document.getElementById('videoCallOverlay');
+const localVideo = document.getElementById('localVideo');
+const remoteVideo = document.getElementById('remoteVideo');
+const callStatusText = document.getElementById('callStatusText');
+
+const incomingCallModal = document.getElementById('incomingCallModal');
+const answerCallBtn = document.getElementById('answerCallBtn');
+const rejectCallBtn = document.getElementById('rejectCallBtn');
+const incomingCallerName = document.getElementById('incomingCallerName');
+
+let pc = null;
+let localStream = null;
+let remoteStream = null;
+let activeCallDocId = null;
+
+const servers = {
+    iceServers: [
+        { urls: ['stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'] }
+    ]
+};
+
+async function initWebRTC() {
+    try {
+        localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        localVideo.srcObject = localStream;
+    } catch (e) {
+        console.error("Camera access denied", e);
+        alert("Camera and microphone access is required for video calls.");
+        throw e;
+    }
+
+    pc = new RTCPeerConnection(servers);
+    remoteStream = new MediaStream();
+    remoteVideo.srcObject = remoteStream;
+
+    localStream.getTracks().forEach((track) => {
+        pc.addTrack(track, localStream);
+    });
+
+    pc.ontrack = (event) => {
+        event.streams[0].getTracks().forEach((track) => {
+            remoteStream.addTrack(track);
+        });
+    };
+}
+
+startCallBtn.addEventListener('click', async () => {
+    videoCallOverlay.style.display = 'flex';
+    callStatusText.textContent = 'Calling...';
+    
+    try {
+        await initWebRTC();
+    } catch(e) {
+        videoCallOverlay.style.display = 'none';
+        return;
+    }
+
+    const callDoc = doc(collection(db, "chatRooms", roomId, "calls"));
+    activeCallDocId = callDoc.id;
+    const offerCandidates = collection(callDoc, 'offerCandidates');
+    const answerCandidates = collection(callDoc, 'answerCandidates');
+
+    pc.onicecandidate = (event) => {
+        if (event.candidate) {
+            addDoc(offerCandidates, event.candidate.toJSON());
+        }
+    };
+
+    const offerDescription = await pc.createOffer();
+    await pc.setLocalDescription(offerDescription);
+
+    const offer = {
+        sdp: offerDescription.sdp,
+        type: offerDescription.type,
+    };
+
+    await setDoc(callDoc, {
+        offer: offer,
+        callerUid: currentUser.uid,
+        status: 'ringing',
+        timestamp: serverTimestamp()
+    });
+
+    // Listen for answer
+    onSnapshot(callDoc, (snapshot) => {
+        const data = snapshot.data();
+        if (!pc || !data) return;
+        
+        if (!pc.currentRemoteDescription && data.answer) {
+            const answerDescription = new RTCSessionDescription(data.answer);
+            pc.setRemoteDescription(answerDescription);
+            callStatusText.textContent = 'Connected';
+        }
+        if (data.status === 'rejected') {
+            endCall();
+            alert("Call declined.");
+        }
+        if (data.status === 'ended') {
+            endCall();
+        }
+    });
+
+    // Listen for remote ICE candidates
+    onSnapshot(answerCandidates, (snapshot) => {
+        snapshot.docChanges().forEach((change) => {
+            if (change.type === 'added') {
+                const candidate = new RTCIceCandidate(change.doc.data());
+                pc.addIceCandidate(candidate);
+            }
+        });
+    });
+});
+
+function listenForIncomingCalls() {
+    const callsRef = collection(db, "chatRooms", roomId, "calls");
+    // We fetch the most recent call
+    const q = query(callsRef, orderBy('timestamp', 'desc'));
+    
+    onSnapshot(q, (snapshot) => {
+        snapshot.docChanges().forEach((change) => {
+            if (change.type === 'added') {
+                const data = change.doc.data();
+                // If it's a new call and we are not the caller
+                if (data.callerUid && data.callerUid !== currentUser.uid && data.status === 'ringing') {
+                    activeCallDocId = change.doc.id;
+                    incomingCallerName.textContent = partnerName;
+                    incomingCallModal.style.display = 'block';
+                    videoCallOverlay.style.display = 'flex';
+                }
+            }
+            if (change.type === 'modified') {
+                const data = change.doc.data();
+                if (data.status === 'ended' || data.status === 'rejected') {
+                    if (incomingCallModal.style.display === 'block') {
+                        incomingCallModal.style.display = 'none';
+                        videoCallOverlay.style.display = 'none';
+                    } else {
+                        endCall();
+                    }
+                }
+            }
+        });
+    });
+}
+
+answerCallBtn.addEventListener('click', async () => {
+    incomingCallModal.style.display = 'none';
+    callStatusText.textContent = 'Connecting...';
+    
+    try {
+        await initWebRTC();
+    } catch(e) {
+        rejectCallBtn.click();
+        return;
+    }
+    
+    const callDoc = doc(db, "chatRooms", roomId, "calls", activeCallDocId);
+    const answerCandidates = collection(callDoc, 'answerCandidates');
+    const offerCandidates = collection(callDoc, 'offerCandidates');
+
+    pc.onicecandidate = (event) => {
+        if (event.candidate) {
+            addDoc(answerCandidates, event.candidate.toJSON());
+        }
+    };
+
+    const callData = (await getDoc(callDoc)).data();
+    const offerDescription = callData.offer;
+    await pc.setRemoteDescription(new RTCSessionDescription(offerDescription));
+
+    const answerDescription = await pc.createAnswer();
+    await pc.setLocalDescription(answerDescription);
+
+    const answer = {
+        type: answerDescription.type,
+        sdp: answerDescription.sdp,
+    };
+
+    await updateDoc(callDoc, { 
+        answer: answer,
+        status: 'answered'
+    });
+    
+    callStatusText.textContent = 'Connected';
+
+    onSnapshot(offerCandidates, (snapshot) => {
+        snapshot.docChanges().forEach((change) => {
+            if (change.type === 'added') {
+                const candidate = new RTCIceCandidate(change.doc.data());
+                pc.addIceCandidate(candidate);
+            }
+        });
+    });
+});
+
+rejectCallBtn.addEventListener('click', async () => {
+    incomingCallModal.style.display = 'none';
+    videoCallOverlay.style.display = 'none';
+    
+    if (activeCallDocId) {
+        await updateDoc(doc(db, "chatRooms", roomId, "calls", activeCallDocId), {
+            status: 'rejected'
+        });
+        activeCallDocId = null;
+    }
+});
+
+endCallBtn.addEventListener('click', async () => {
+    if (activeCallDocId) {
+        await updateDoc(doc(db, "chatRooms", roomId, "calls", activeCallDocId), {
+            status: 'ended'
+        });
+    }
+    endCall();
+});
+
+function endCall() {
+    if (pc) {
+        pc.close();
+        pc = null;
+    }
+    if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+        localStream = null;
+    }
+    if (remoteStream) {
+        remoteStream.getTracks().forEach(track => track.stop());
+        remoteStream = null;
+    }
+    videoCallOverlay.style.display = 'none';
+    incomingCallModal.style.display = 'none';
+    localVideo.srcObject = null;
+    remoteVideo.srcObject = null;
+    activeCallDocId = null;
 }
