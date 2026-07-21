@@ -290,12 +290,19 @@ let deferredPrompt;
 const pwaInstallPopup = document.getElementById('pwaInstallPopup');
 const pwaInstallBtn = document.getElementById('pwaInstallBtn');
 const pwaCloseBtn = document.getElementById('pwaCloseBtn');
+const inlineInstallBtn = document.getElementById('inlineInstallBtn');
 
 window.addEventListener('beforeinstallprompt', (e) => {
     // Prevent the mini-infobar from appearing on mobile
     e.preventDefault();
     // Stash the event so it can be triggered later.
     deferredPrompt = e;
+    
+    // Show inline install button
+    if (inlineInstallBtn) {
+        inlineInstallBtn.style.display = 'block';
+    }
+    
     // Show custom popup if they haven't dismissed it recently
     if (!localStorage.getItem('pwa_dismissed')) {
         setTimeout(() => {
@@ -316,8 +323,21 @@ pwaInstallBtn.addEventListener('click', async () => {
         const { outcome } = await deferredPrompt.userChoice;
         console.log(`User response to the install prompt: ${outcome}`);
         deferredPrompt = null;
+        if (inlineInstallBtn) inlineInstallBtn.style.display = 'none';
     }
 });
+
+if (inlineInstallBtn) {
+    inlineInstallBtn.addEventListener('click', async () => {
+        if (deferredPrompt) {
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            console.log(`User response to the install prompt: ${outcome}`);
+            deferredPrompt = null;
+            inlineInstallBtn.style.display = 'none';
+        }
+    });
+}
 
 // Check if iOS (iOS doesn't support beforeinstallprompt)
 const isIos = () => {
@@ -328,15 +348,27 @@ const isIos = () => {
 // Check if already running as PWA
 const isInStandaloneMode = () => ('standalone' in window.navigator) && (window.navigator.standalone);
 
-if (isIos() && !isInStandaloneMode() && !localStorage.getItem('pwa_dismissed')) {
-    // Modify popup for iOS instructions
-    document.querySelector('.pwa-text h3').textContent = 'Install on iOS';
-    document.querySelector('.pwa-text p').innerHTML = 'Tap the <b>Share</b> icon below<br>then <b>Add to Home Screen</b>';
-    pwaInstallBtn.style.display = 'none'; // Can't click to install programmatically on iOS
-    
-    setTimeout(() => {
-        pwaInstallPopup.style.display = 'block';
-    }, 2000);
+if (isIos() && !isInStandaloneMode()) {
+    if (inlineInstallBtn) {
+        inlineInstallBtn.style.display = 'block';
+        inlineInstallBtn.addEventListener('click', () => {
+            document.querySelector('.pwa-text h3').textContent = 'Install on iOS';
+            document.querySelector('.pwa-text p').innerHTML = 'Tap the <b>Share</b> icon below<br>then <b>Add to Home Screen</b>';
+            pwaInstallBtn.style.display = 'none';
+            pwaInstallPopup.style.display = 'block';
+        });
+    }
+
+    if (!localStorage.getItem('pwa_dismissed')) {
+        // Modify popup for iOS instructions
+        document.querySelector('.pwa-text h3').textContent = 'Install on iOS';
+        document.querySelector('.pwa-text p').innerHTML = 'Tap the <b>Share</b> icon below<br>then <b>Add to Home Screen</b>';
+        pwaInstallBtn.style.display = 'none'; // Can't click to install programmatically on iOS
+        
+        setTimeout(() => {
+            pwaInstallPopup.style.display = 'block';
+        }, 2000);
+    }
 }
 
 // Logout Logic
