@@ -298,11 +298,6 @@ window.addEventListener('beforeinstallprompt', (e) => {
     // Stash the event so it can be triggered later.
     deferredPrompt = e;
     
-    // Show inline install button
-    if (inlineInstallBtn) {
-        inlineInstallBtn.style.display = 'block';
-    }
-    
     // Show custom popup if they haven't dismissed it recently
     if (!localStorage.getItem('pwa_dismissed')) {
         setTimeout(() => {
@@ -323,9 +318,14 @@ pwaInstallBtn.addEventListener('click', async () => {
         const { outcome } = await deferredPrompt.userChoice;
         console.log(`User response to the install prompt: ${outcome}`);
         deferredPrompt = null;
-        if (inlineInstallBtn) inlineInstallBtn.style.display = 'none';
     }
 });
+
+// Check if iOS (iOS doesn't support beforeinstallprompt)
+const isIos = () => {
+    const userAgent = window.navigator.userAgent.toLowerCase();
+    return /iphone|ipad|ipod/.test(userAgent);
+};
 
 if (inlineInstallBtn) {
     inlineInstallBtn.addEventListener('click', async () => {
@@ -334,31 +334,26 @@ if (inlineInstallBtn) {
             const { outcome } = await deferredPrompt.userChoice;
             console.log(`User response to the install prompt: ${outcome}`);
             deferredPrompt = null;
-            inlineInstallBtn.style.display = 'none';
+        } else {
+            // If beforeinstallprompt hasn't fired (already installed, uninstalled recently, or unsupported)
+            // Show manual installation instructions popup
+            if (isIos()) {
+                document.querySelector('.pwa-text h3').textContent = 'Install on iOS';
+                document.querySelector('.pwa-text p').innerHTML = 'Tap the <b>Share</b> icon below<br>then <b>Add to Home Screen</b>';
+            } else {
+                document.querySelector('.pwa-text h3').textContent = 'Install App';
+                document.querySelector('.pwa-text p').innerHTML = 'Click your browser menu (⋮) at the top right and select <b>Install App</b> or <b>Add to Home Screen</b>.';
+            }
+            pwaInstallBtn.style.display = 'none'; 
+            pwaInstallPopup.style.display = 'block';
         }
     });
 }
-
-// Check if iOS (iOS doesn't support beforeinstallprompt)
-const isIos = () => {
-    const userAgent = window.navigator.userAgent.toLowerCase();
-    return /iphone|ipad|ipod/.test(userAgent);
-};
 
 // Check if already running as PWA
 const isInStandaloneMode = () => ('standalone' in window.navigator) && (window.navigator.standalone);
 
 if (isIos() && !isInStandaloneMode()) {
-    if (inlineInstallBtn) {
-        inlineInstallBtn.style.display = 'block';
-        inlineInstallBtn.addEventListener('click', () => {
-            document.querySelector('.pwa-text h3').textContent = 'Install on iOS';
-            document.querySelector('.pwa-text p').innerHTML = 'Tap the <b>Share</b> icon below<br>then <b>Add to Home Screen</b>';
-            pwaInstallBtn.style.display = 'none';
-            pwaInstallPopup.style.display = 'block';
-        });
-    }
-
     if (!localStorage.getItem('pwa_dismissed')) {
         // Modify popup for iOS instructions
         document.querySelector('.pwa-text h3').textContent = 'Install on iOS';
