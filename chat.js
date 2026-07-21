@@ -387,3 +387,16 @@ document.addEventListener('click', (e) => {
         emojiToggleBtn.style.color = 'var(--text-secondary)';
     }
 });
+
+// Handle mobile keyboard viewport resize
+if (window.visualViewport) {
+    const adjustViewport = () => {
+        document.body.style.height = window.visualViewport.height + 'px';
+        window.scrollTo(0, 0);
+        setTimeout(() => {
+            messagesList.scrollTop = messagesList.scrollHeight;
+        }, 10);
+    };
+    window.visualViewport.addEventListener('resize', adjustViewport);
+    adjustViewport();
+}
