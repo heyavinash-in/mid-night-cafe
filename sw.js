@@ -1,4 +1,4 @@
-const CACHE_NAME = 'midnight-cafe-v14';
+const CACHE_NAME = 'midnight-cafe-v16';
 const ASSETS = [
     './',
     './index.html',
@@ -10,7 +10,7 @@ const ASSETS = [
     './onboarding.js',
     './home.js',
     './chat.js',
-    './icon.jpg',
+    './icon.png',
     './chat_bg.jpg',
     './manifest.json'
 ];
